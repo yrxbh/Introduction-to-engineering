@@ -1,0 +1,126 @@
+#include <DHT.h>
+#include<math.h>
+#include <MQUnifiedsensor.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+//OLED屏幕分辨率
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
+
+//MQ-2
+//#define MQ_2 0
+
+//土壤湿度传感器
+#define SOIL 15
+#define s_MIN 1450
+#define s_MAX 4095
+
+//DHT11定义针脚
+#define DHTPIN 19 
+#define DHTTYPE DHT11
+
+//LDR光敏电阻
+#define LDR_PIN 2
+
+//初始化屏幕
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+//float CAL_PPM=20.0;  // 校准环境中PPM值
+//float RL=5000;   // RL阻值
+/×atic float R0; // 元件在洁净空气中的阻值
+
+// LDR Characteristics
+const float GAMMA = 0.7;
+const float RL10 = 50;
+
+//进行DHT11初始设置 
+DHT dht(DHTPIN, DHTTYPE);
+
+float h,t,lux,s_h;
+
+void setup() {
+  Serial.begin(115200);  
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C); //屏幕通信
+  dht.begin(); //DHT开始工作
+  pinMode(LDR_PIN, INPUT);   
+  pinMode(SOIL, INPUT);
+//  pinMode(MQ_2,INPUT);
+} 
+void loop() {  
+  display.display();
+  DISPLAY1();
+  // 两次检测之间，要等几秒钟，这个传感器有点慢。
+  delay(1000);
+
+  // 读温度或湿度要用250毫秒
+  h = dht.readHumidity();//读湿度
+  t = dht.readTemperature();//读温度，默认为摄氏度
+
+  //读取光敏电阻模拟量输出，并转化为光强
+  int analogValue = analogRead(LDR_PIN);
+  float voltage = analogValue / 1024.0 * 5;
+  float resistance = 2000 * voltage / (1.0 - voltage / 5.0);
+  lux = pow(RL10 * 1e3 * pow(10, GAMMA) / resistance , (1 / GAMMA));
+
+  //读取土壤湿度传感器模拟量输出
+  int S = analogRead(SOIL);
+  s_h=(s_MAX-S)/((s_MAX-s_MIN)/98)+2;
+//  if (lux > 50) {
+//    lcd.print("Light!");
+//  } else {
+//    lcd.print("Dark  ");
+//  }
+//  int ADC_Value  = analogRead(MQ_2);
+//  float Vrl = 3.3 * ADC_Value / 4095.0;
+//  float RS = (3.3 - Vrl) / Vrl * RL; 
+//  if(boot_time_ms < 3000) // 获取系统执行时间，3s前进行校准
+//  {
+//     MQ2_PPM_Calibration(RS);
+//  }
+//  R0 = RS / pow(CAL_PPM / 613.9, 1 / -2.074);
+//  float ppm = 613.9 * pow(RS/R0, -2.074);
+
+  //串口显示
+  Serial.print("Humidity: ");//湿度
+  Serial.print(h);
+  Serial.println("%");
+  Serial.print("Temperature: ");//温度
+  Serial.print(t);
+  Serial.println(" ℃ ");
+  Serial.print("illumination:");
+  Serial.print(lux);
+  Serial.println("lux ");
+  Serial.print("Soil moisture:");
+  Serial.print(s_h);
+  Serial.println("%");Serial.println(S);
+//  Serial.print("Air quality:");
+//  Serial.print(ppm);
+}
+
+/*
+ * OLED显示函数
+ */
+void DISPLAY1()
+{
+  display.clearDisplay(); 
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.print("Humidity:");
+  display.print(h);
+  display.println(" %");
+  display.print("Temperature:");
+  display.print(t);
+  display.println(" C");
+  display.println("illumination:");
+  display.print(lux);
+  display.println(" lux");
+  display.print("Soil moisture:");
+  display.print(s_h);
+  display.println("%");
+}
